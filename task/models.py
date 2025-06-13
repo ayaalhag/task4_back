@@ -1,7 +1,9 @@
 from django.db import models
 from django.conf import settings
 from project.models import Project
-from simple_history.models import HistoricalRecords
+# from simple_history.models import HistoricalRecords
+from django.contrib.auth import get_user_model
+User = get_user_model()
 
 class Task(models.Model):
     STATUS_CHOICES = (
@@ -21,7 +23,18 @@ class Task(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    history = HistoricalRecords()
+    # history = HistoricalRecords()
 
     def __str__(self):
         return self.title
+
+class TaskLog(models.Model):
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="logs")
+    field_changed = models.CharField(max_length=50)  # مثل 'status' أو 'assignee'
+    old_value = models.TextField(null=True, blank=True)
+    new_value = models.TextField(null=True, blank=True)
+    modified_by = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)
+    modified_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.field_changed} changed on {self.task.title} at {self.modified_at}"

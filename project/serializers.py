@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .models import Project, ProjectMembership
 from task.serializers import TaskSerializer  # استخدمه لعرض المهام
+from django.db import transaction
 
 User = get_user_model()
 
@@ -39,39 +40,39 @@ class ProjectSerializer(serializers.ModelSerializer):
         print("Request user is:", self.context.get('request').user)
 
         members_data = validated_data.pop('members_input', [])
-
         request = self.context.get('request')
         if not request:
             raise serializers.ValidationError("Request not found in context.")
         user = request.user
+        with transaction.atomic():
+            project = Project.objects.create(**validated_data)
+            ProjectMembership.objects.create(user=user, project=project, role='manager')
+            print("Manager membership created for user:", user.username)
+        
+            missing_users = []
+            for member in members_data:
+                user_id = member.get('user_id')
+                role = member.get('role', 'member')
 
-        # إنشاء المشروع
-        project = Project.objects.create(**validated_data)
-
-        # تسجيل المستخدم الحالي كمدير
-        ProjectMembership.objects.create(user=user, project=project, role='manager')
-        print("Manager membership created for user:", user.username)
-
-        # إضافة الأعضاء الآخرين بعد التحقق
-        for member in members_data:
-            user_id = member.get('user_id')
-            role = member.get('role', 'member')
-
-            if role not in ['manager', 'member']:
-                continue
-
-            try:
-                member_user = User.objects.get(id=user_id)
-                if member_user == user:
+                if role not in ['manager', 'member']:
                     continue
 
-                if ProjectMembership.objects.filter(user=member_user, project=project).exists():
-                    continue
+                try:
+                    member_user = User.objects.get(id=user_id)
+                    if member_user == user:
+                        continue
 
-                ProjectMembership.objects.create(user=member_user, project=project, role=role)
-                print("Added member:", member_user.username, "as", role)
+                    if ProjectMembership.objects.filter(user=member_user, project=project).exists():
+                        continue
 
-            except User.DoesNotExist:
-                continue
+                    ProjectMembership.objects.create(user=member_user, project=project, role=role)
+                    print("Added member:", member_user.username, "as", role)
 
+                except User.DoesNotExist:
+                    missing_users.append(user_id)
+            if missing_users:
+                raise serializers.ValidationError({
+                    'detail': 'Some users were not found.',
+                    'missing_users': missing_users
+                })
         return project

@@ -12,9 +12,13 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 
 from pathlib import Path
 from datetime import timedelta
+import os
+from django.contrib.messages import constants as messages
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+LOGIN_REDIRECT_URL = '/'
 
 
 # Quick-start development settings - unsuitable for production
@@ -45,6 +49,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'simple_history',
+    'notifications',
 ]
 
 MIDDLEWARE = [
@@ -62,7 +67,7 @@ ROOT_URLCONF = 'task_manager.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -148,4 +153,7 @@ SIMPLE_JWT = {
     'ROTATE_REFRESH_TOKENS': True,                   # لجعل التوكن يتغير عند كل تحديث (اختياري)
     'BLACKLIST_AFTER_ROTATION': True,                # لتفعيل القائمة السوداء للتوكنات الملغاة (مهم إذا استخدمت Rotate)
     # إعدادات إضافية ممكن تضيفها حسب الحاجة
+}
+MESSAGE_TAGS = {
+    messages.ERROR: 'danger',
 }

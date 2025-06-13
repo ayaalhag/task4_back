@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <title>قائمة المشاريع</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            margin: 0;
+            display: flex;
+            background-color: #f4f4f4;
+            direction: rtl;
+        }
+
+        .sidebar {
+            width: 250px;
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            right: 0;
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .sidebar h2 {
+            font-size: 20px;
+            margin-bottom: 30px;
+            border-bottom: 1px solid #555;
+            padding-bottom: 10px;
+        }
+
+        .sidebar ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .sidebar ul li {
+            margin-bottom: 15px;
+        }
+
+        .sidebar ul li a {
+            color: #ecf0f1;
+            text-decoration: none;
+            font-size: 16px;
+            display: block;
+            transition: background 0.3s;
+        }
+
+        .sidebar ul li a:hover {
+            background-color: #34495e;
+            padding-right: 10px;
+        }
+
+        .content {
+            flex: 1;
+            padding: 30px;
+            margin-right: 270px;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 6px 12px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 14px;
+            margin-left: 5px;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            background-color: #2980b9;
+        }
+
+        .btn-tasks {
+            background-color: #27ae60;
+        }
+
+        .btn-tasks:hover {
+            background-color: #1e8449;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        th, td {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            text-align: right;
+        }
+
+        th {
+            background-color: #1abc9c;
+            color: white;
+        }
+
+        .actions {
+            display: flex;
+            gap: 6px;
+        }
+
+        /* النافذة المنبثقة */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            right: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+
+        .modal-content {
+            background-color: #fff;
+            margin: 10% auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            width: 50%;
+            border-radius: 8px;
+        }
+
+        .close {
+            color: #aaa;
+            float: left;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        #memberCheckboxes {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+        }
+        #memberCheckboxes div {
+            width: 45%; /* نصف العرض تقريبًا */
+            display: flex;
+            align-items: center;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <h2>لوحة التحكم</h2>
+    <ul>
+        <li><a href="/">🏠 الصفحة الرئيسية</a></li>
+        <li><a href="/tasks/all/">📋 المهام</a></li>
+        <li><a href="/projects/">📁 المشاريع</a></li> 
+        <li><a href="/api/notifications/html/">🔔 الإشعارات</a></li>
+        <li><a href="/accounts/users/html/">👥 المستخدمين</a></li>
+        <li><a href="/accounts/logout/">🚪 تسجيل الخروج</a></li>
+    </ul>
+</div>
+
+<div class="content">
+    <h1>قائمة المشاريع</h1>
+
+    <button id="openModalBtn" class="btn">➕ مشروع جديد</button>
+
+    <!-- نافذة منبثقة لإضافة مشروع -->
+    <div id="projectModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>إضافة مشروع جديد</h2>
+            <form id="projectForm">
+                <label>اسم المشروع:</label>
+                <input type="text" id="projectName" required>
+
+                <label>الوصف:</label>
+                <textarea id="projectDescription" rows="4"></textarea>
+
+                <label>اختر الأعضاء:</label>
+                <div id="memberCheckboxes" style="margin-top: 10px;">
+                </div>
+                <button type="submit" class="btn">💾 حفظ</button>
+            </form>
+        </div>
+    </div>
+    <br><br>
+
+    <table>
+        <thead>
+            <tr>
+                <th>اسم المشروع</th>
+                <th>الوصف</th>
+                <th>المدير</th>
+                <th>تاريخ الإنشاء</th>
+                <th>الأعضاء</th> <!-- العمود الجديد -->
+                <th>العمليات</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for project in projects %}
+            <tr>
+                <td>{{ project.name }}</td>
+                <td>{{ project.description }}</td>
+                <td>{{ project.manager }}</td>
+                <td>{{ project.created_at|date:"Y-m-d" }}</td>
+                <td>
+                    {% for member in project.members %}
+                        <span>{{ member.username }} ({{ member.role }})</span><br>
+                    {% empty %}
+                        <span>لا يوجد أعضاء</span>
+                    {% endfor %}
+                </td>
+                <td class="actions">
+                    <button class="btn edit-btn" data-id="{{ project.id }}">✏️ تعديل</button>
+                    <button class="btn delete-btn" data-id="{{ project.id }}" style="background-color:#e74c3c;">🗑️ حذف</button>
+                    <a href="/tasks/by-project/{{ project.id }}/" class="btn btn-tasks">📂 المهام</a>
+                </td>
+            </tr>
+            
+        {% empty %}
+            <tr><td colspan="5">لا يوجد مشاريع.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const token = localStorage.getItem("access_token");
+
+    const modal = document.getElementById("projectModal");
+    const closeBtn = modal.querySelector(".close");
+    const form = document.getElementById("projectForm");
+    let isEdit = false;
+    let editProjectId = null;
+
+    // فتح المودال للتعديل
+    document.querySelectorAll(".edit-btn").forEach(btn => {
+        btn.addEventListener("click", function () {
+            isEdit = true;
+            editProjectId = this.dataset.id;
+            modal.style.display = "block";
+            loadUsers();  // حمل الأعضاء
+            loadProjectData(editProjectId);  // جلب بيانات المشروع
+        });
+    });
+
+    // تحميل بيانات المشروع المراد تعديله
+    function loadProjectData(projectId) {
+        fetch(`/projects/api/projects/${projectId}/`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        })
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById("projectName").value = data.name;
+            document.getElementById("projectDescription").value = data.description;
+
+            // تأخير بسيط لضمان تحميل الـ checkboxes أولاً
+            setTimeout(() => {
+                const members = data.members.map(m => m.username);
+                document.querySelectorAll("#memberCheckboxes input").forEach(input => {
+                    if (members.includes(input.dataset.username)) {
+                        input.checked = true;
+                    } else {
+                        input.checked = false;
+                    }
+                });
+            }, 500);
+        });
+    }
+
+    // حفظ (إضافة أو تعديل)
+    form.onsubmit = function (e) {
+        e.preventDefault();
+        const name = document.getElementById("projectName").value;
+        const description = document.getElementById("projectDescription").value;
+        const selectedMembers = [];
+        document.querySelectorAll("#memberCheckboxes input:checked").forEach(input => {
+            selectedMembers.push({
+                user_id: parseInt(input.value),
+                role: "member"
+            });
+        });
+
+        const payload = {
+            name,
+            description,
+            members_input: selectedMembers
+        };
+
+        const url = isEdit
+            ? `/projects/api/projects/${editProjectId}/`
+            : `/projects/create-project/`;
+        const method = isEdit ? "PUT" : "POST";
+
+        fetch(url, {
+            method,
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(res => {
+            if (!res.ok) throw new Error("فشل في الحفظ");
+            return res.json();
+        })
+        .then(() => {
+            alert("✅ تم الحفظ بنجاح");
+            location.reload();
+        })
+        .catch(err => {
+            alert("❌ حدث خطأ: " + err.message);
+        });
+    };
+
+    // باقي الكود: فتح وإغلاق المودال
+    document.getElementById("openModalBtn").onclick = () => {
+        isEdit = false;
+        editProjectId = null;
+        modal.style.display = "block";
+        document.getElementById("projectForm").reset();
+        loadUsers();
+    };
+    closeBtn.onclick = () => modal.style.display = "none";
+    window.onclick = e => { if (e.target === modal) modal.style.display = "none"; };
+
+    // تحميل كل المستخدمين
+    function loadUsers() {
+        fetch("/accounts/users/")
+        .then(res => res.json())
+        .then(users => {
+            const container = document.getElementById("memberCheckboxes");
+            container.innerHTML = "";
+            users.forEach(user => {
+                const div = document.createElement("div");
+                const checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.value = user.id;
+                checkbox.dataset.username = user.username;
+
+                const label = document.createElement("label");
+                label.textContent = user.username;
+                label.style.marginRight = "6px";
+
+                div.appendChild(checkbox);
+                div.appendChild(label);
+                container.appendChild(div);
+            });
+        });
+    }
+});
+document.querySelectorAll('.delete-btn').forEach(button => {
+  button.addEventListener('click', function () {
+    const projectId = this.dataset.id;
+    const token = localStorage.getItem('access_token');
+
+    if (confirm("هل أنت متأكد من حذف المشروع؟")) {
+      fetch(`/projects/api/projects/${projectId}/`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        }
+      })
+      .then(res => {
+        if (res.ok) {
+          alert("✅ تم حذف المشروع");
+          location.reload();
+        } else {
+          return res.json().then(err => {
+            throw new Error(JSON.stringify(err));
+          });
+        }
+      })
+      .catch(err => alert("❌ خطأ: " + err.message));
+    }
+  });
+});
+
+</script>
+
+</body>
+</html>

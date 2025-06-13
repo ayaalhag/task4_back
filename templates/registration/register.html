@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>تسجيل جديد</title>
+    <style>
+        .errorlist {
+            color: red;
+            list-style: none;
+        }
+        .helptext {
+            font-size: 0.9em;
+            color: #777;
+        }
+        input {
+            margin-bottom: 8px;
+        }
+        .form-field {
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <h2>تسجيل مستخدم جديد</h2>
+
+    <form method="post">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+            <ul class="errorlist">
+                {% for error in form.non_field_errors %}
+                    <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+
+        {% for field in form %}
+            <div class="form-field">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label><br>
+                {{ field }}
+
+                {% if field.help_text %}
+                    <div class="helptext">{{ field.help_text|safe }}</div>
+                {% endif %}
+
+                {% if field.errors %}
+                    <ul class="errorlist">
+                        {% for error in field.errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            </div>
+        {% endfor %}
+
+        <button type="submit">تسجيل</button>
+    </form>
+</body>
+</html>

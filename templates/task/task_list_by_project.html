@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <title>مهام المشروع</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; padding: 20px; direction: rtl; background: #f9f9f9; }
+        h2 { color: #2c3e50; }
+        .btn {
+            padding: 6px 12px;
+            background-color: #3498db;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        .btn:hover { background-color: #2980b9; }
+        .btn-danger {
+            background-color: #e74c3c;
+        }
+        .btn-danger:hover { background-color: #c0392b; }
+        table {
+            width: 100%;
+            background-color: white;
+            border-collapse: collapse;
+            margin-top: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        th, td {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+        }
+        th { background-color: #1abc9c; color: white; }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            right: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background-color: #fff;
+            margin: 5% auto;
+            padding: 20px;
+            width: 45%;
+            border-radius: 8px;
+            position: relative;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        .close {
+            position: absolute;
+            left: 10px;
+            top: 10px;
+            font-size: 22px;
+            cursor: pointer;
+            color: #aaa;
+        }
+        .close:hover { color: black; }
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-family: inherit;
+        }
+        label { font-weight: bold; display: block; margin-bottom: 5px; }
+    </style>
+</head>
+<body>
+
+<h2>📂 مهام المشروع رقم {{ view.kwargs.project_id }}</h2>
+
+<button id="openModalBtn" class="btn">➕ إضافة مهمة</button>
+
+<table>
+    <thead>
+        <tr>
+            <th>العنوان</th>
+            <th>الوصف</th>
+            <th>الحالة</th>
+            <th>المسؤول</th>
+            <th>📌 مثبتة</th>
+            <th>تاريخ الاستحقاق</th>
+            <th>العمليات</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for task in tasks %}
+        <tr>
+            <td>{{ task.title }}</td>
+            <td>{{ task.description }}</td>
+            <td>{{ task.status }}</td>
+            <td>{{ task.assignee }}</td>
+            <td>{{ task.is_pinned }}</td>
+            <td>{{ task.due_date }}</td>
+            <td>
+                <a href="#" class="btn edit-task-btn"
+                   data-id="{{ task.id }}"
+                   data-title="{{ task.title }}"
+                   data-description="{{ task.description }}"
+                   data-status="{{ task.status }}"
+                   data-due="{{ task.due_date }}"
+                   data-assignee="{{ task.assignee.id }}"
+                   data-pinned="{{ task.is_pinned }}">
+                   ✏️ تعديل
+                </a>
+                <a href="#" class="btn btn-danger" onclick="deleteTask({{ task.id }})">🗑️ حذف</a>
+            </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7">لا توجد مهام.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- نافذة منبثقة -->
+<div id="taskModal" class="modal">
+  <div class="modal-content">
+    <span class="close">&times;</span>
+    <h3 id="modalTitle">➕ إضافة مهمة</h3>
+    <form id="taskForm">
+      <label>عنوان المهمة:</label>
+      <input type="text" id="title" required>
+
+      <label>الوصف:</label>
+      <textarea id="description"></textarea>
+
+      <label>الحالة:</label>
+      <select id="status">
+        <option value="todo">🕒 لم تبدأ</option>
+        <option value="in_progress">⚙️ قيد التنفيذ</option>
+        <option value="completed">✅ مكتملة</option>
+      </select>
+
+      <label>تاريخ الاستحقاق:</label>
+      <input type="date" id="due_date" required>
+
+      <label for="assignee">المسؤول عن التنفيذ:</label>
+      <select id="assignee">
+        <option value="">-- اختر مستخدمًا --</option>
+      </select>
+
+      <label style="display: flex; align-items: center; gap: 10px;">
+        <input type="checkbox" id="is_pinned"> 📌 تثبيت المهمة
+      </label>
+
+      <button type="submit" class="btn">💾 حفظ المهمة</button>
+    </form>
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const modal = document.getElementById("taskModal");
+    const openBtn = document.getElementById("openModalBtn");
+    const closeBtn = modal.querySelector(".close");
+    const form = document.getElementById("taskForm");
+    const projectId = "{{ view.kwargs.project_id }}";
+    const token = localStorage.getItem("access_token");
+
+    let editingTaskId = null;
+
+    openBtn.onclick = () => {
+        editingTaskId = null;
+        form.reset();
+        document.getElementById("modalTitle").textContent = "➕ إضافة مهمة";
+        modal.style.display = "block";
+        loadAssignees();
+    };
+
+    closeBtn.onclick = () => modal.style.display = "none";
+    window.onclick = (e) => { if (e.target === modal) modal.style.display = "none"; }
+
+    document.querySelectorAll(".edit-task-btn").forEach(btn => {
+        btn.onclick = () => {
+            editingTaskId = btn.dataset.id;
+            document.getElementById("modalTitle").textContent = "✏️ تعديل المهمة";
+            document.getElementById("title").value = btn.dataset.title;
+            document.getElementById("description").value = btn.dataset.description;
+            document.getElementById("status").value = btn.dataset.status;
+            document.getElementById("due_date").value = btn.dataset.due;
+            document.getElementById("is_pinned").checked = btn.dataset.pinned === 'true';
+            loadAssignees(() => {
+                document.getElementById("assignee").value = btn.dataset.assignee;
+            });
+            modal.style.display = "block";
+        };
+    });
+
+    function loadAssignees(callback) {
+        fetch("/accounts/users/")
+        .then(res => res.json())
+        .then(users => {
+            const select = document.getElementById("assignee");
+            select.innerHTML = '<option value="">-- اختر مستخدمًا --</option>';
+            users.forEach(user => {
+                const option = document.createElement("option");
+                option.value = user.id;
+                option.textContent = user.username;
+                select.appendChild(option);
+            });
+            if (callback) callback();
+        });
+    }
+
+    form.onsubmit = function (e) {
+        e.preventDefault();
+
+        const data = {
+            title: document.getElementById("title").value,
+            description: document.getElementById("description").value,
+            status: document.getElementById("status").value,
+            due_date: document.getElementById("due_date").value,
+            assignee: document.getElementById("assignee").value || null,
+            is_pinned: document.getElementById("is_pinned").checked,
+            project: projectId
+        };
+
+        const url = editingTaskId ? `/tasks/tasks/${editingTaskId}/` : `/tasks/tasks/`;
+        const method = editingTaskId ? "PUT" : "POST";
+
+        fetch(url, {
+            method: method,
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify(data)
+        })
+        .then(res => {
+            if (!res.ok) return res.json().then(err => { throw new Error(JSON.stringify(err)); });
+            return res.json();
+        })
+        .then(() => {
+            alert(editingTaskId ? "✅ تم تعديل المهمة" : "✅ تم إنشاء المهمة");
+            window.location.reload();
+        })
+        .catch(error => alert("❌ خطأ: " + error.message));
+    };
+});
+
+function deleteTask(taskId) {
+    if (confirm("هل أنت متأكد من حذف المهمة؟")) {
+        fetch(`/tasks/tasks/${taskId}/`, {
+            method: 'DELETE',
+            headers: {
+                "Authorization": `Bearer ${localStorage.getItem("access_token")}`
+            }
+        })
+        .then(res => {
+            if (!res.ok) throw new Error("فشل الحذف");
+            alert("✅ تم حذف المهمة");
+            window.location.reload();
+        })
+        .catch(err => alert("❌ خطأ: " + err.message));
+    }
+}
+</script>
+
+</body>
+</html>
